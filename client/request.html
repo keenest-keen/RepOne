@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Request captcha</title>
+	<style>
+		form {
+			width: 375px;
+		}
+		.form-label {
+			display: inline-block;
+			width: 100px
+		}
+		.status {
+			display: none;
+		}
+	</style>
+	<script src="./jquery.min.js"></script>
+	<script>
+		var SERVER_URL = 'http://localhost:3000',	// путь к серверу
+			REDIRECT_PAUSE = 0.5;					// через сколько секунд осуществлять переадресацию после успешной отправки данных
+		
+		$(function () {
+			$('#labelredirect').hide();
+			
+			$('#btnsend').click(function () {
+				var phone = $('#phone').val(),
+					email = $('#email').val();
+										
+				if (!phone) {
+					alert('Необходимо указать номер телефона.');
+					return false;
+				}
+				if (!email) {
+					alert('Необходимо указать email.');
+					return false;
+				}
+				if (!(/^[0-9a-z_\.]+@[0-9a-z_\^\.]+\.[a-z]{2,6}$/i.test(email))) {
+					alert('Введён некорректный email.');
+					return false;
+				}
+								
+				$.ajax({
+					url: SERVER_URL + '/request_captcha',
+					type: 'POST',				
+					dataType: 'jsonp',									
+					data: { phone: phone, email: email },
+					success: function (data) {												
+						//console.log(data);
+						if (data.status == 'ok') {
+							$('#labelredirect').show();
+							setTimeout(function () {
+								window.location = './confirm.html?' + data.captcha;
+							}, REDIRECT_PAUSE * 1000);							
+						}
+						else {
+							alert('Сервер вернул ошибку.');
+						}
+					}
+				});
+				
+				return false;
+			});
+		});
+	</script>
+</head>
+<body>
+	<form action="/" method="POST">
+		<label>Введите свои данные:</label><br/>
+		<fieldset>
+			<label for="phone" class="form-label">Телефон</label><input type="tel" id="phone">
+			<br/>
+			<label for="email" class="form-label">E-mail</label><input type="email" id="email">
+		</fieldset>
+		<input type="submit" id="btnsend" value="Отправить"><br/>
+		<label id="labelredirect">Данные успешно отправлены. Сейчас вы будете перенаправлены.</label><br/>		
+	</form>
+</body>
+</html>
