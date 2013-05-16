@@ -17,12 +17,16 @@
 		fieldset {
 			margin-top: 15px;
 		}
+		#labeldisconnect {
+			color: red;
+		}
 	</style>
 	<script src="./jquery.min.js"></script>
 	<script>
 		var SERVER_URL = 'http://localhost:3000',	// путь к серверу
 			INTERVAL = 0.5,							// интервал запроса состояния кодов (в секундах)
-			REDIRECT_PAUSE = 2;						// через сколько секунд осуществлять переадресацию после успешной верификации данных
+			REDIRECT_PAUSE = 2,						// через сколько секунд осуществлять переадресацию после успешной верификации данных
+			SERVER_TIMEOUT = 5;						// интервал ожидания ответа от сервера (в секундах). если превышен - сообщать об ошибке
 		
 		$(function () {
 			var fGetStatus,
@@ -32,10 +36,12 @@
 				captcha;
 				
 			$.ajaxSetup({
-				type: 'POST',				
-				dataType: 'jsonp'
+				type: 'GET',				
+				dataType: 'jsonp',				
+				timeout: SERVER_TIMEOUT	* 1000
 			});				
 			$('#labelredirect').hide();
+			$('#labeldisconnect').hide();
 			
 			fParseURL = function (href) {
 				var a = document.createElement('a');
@@ -44,6 +50,7 @@
 			};
 			
 			fDraw = function (x) {
+				$('#labeldisconnect').hide();
 				if (x.phone) {
 					$('.status-phone__yes').show();
 					$('.status-phone__no').hide();
@@ -63,6 +70,12 @@
 			};
 			
 			fGetStatus = function () {
+				if (!captcha) {
+					$('#btnsend').attr('disabled', true);
+					$('#btnResendEmail').attr('disabled', true);
+					$('#btnResendSms').attr('disabled', true);
+					return alert('Неизвестен идентификатор captcha (попробуйте вернуться к предыдущей странице и попробовать снова).');
+				}
 				$.ajax({
 					url: SERVER_URL + '/get_captcha_status',					
 					data: { captcha: captcha },
@@ -84,11 +97,18 @@
 								}, REDIRECT_PAUSE * 1000);
 							}
 						}
+					},
+					error: function () {
+						console.log('server unavailable, trying again');
+						$('#labeldisconnect').show('slow');
+						setTimeout(function () {
+							fGetStatus();
+						}, INTERVAL * 1000);
 					}
 				});
 			};
 			
-			fResend = function (media) {
+			fResend = function (media, callback) {
 				$.ajax({
 					url: SERVER_URL + '/resend',							
 					data: { captcha: captcha, media: media },
@@ -96,13 +116,24 @@
 						if (data.status != 'ok') {
 							alert('Сервер вернул ошибку: ' + data.error);
 						}
-					}
+						callback();
+					},
+					error: function () {
+						alert('Ошибка: сервер недоступен.');
+						callback();
+					},
 				});
 			};
 			
 			$('#btnsend').click(function () {
-				var code = $('#confirmcode').val();
+				var code = $('#confirmcode').val().trim(),
+					that = this;
 				
+				if (!code) {
+					alert('Необходимо ввести код подтверждения.');
+					return false;
+				}
+				$(this).attr('disabled', true);
 				$.ajax({
 					url: SERVER_URL + '/confirm_code',
 					data: { code: code },
@@ -110,7 +141,12 @@
 						console.log(data);
 						if (data.status != 'ok') {
 							alert('Сервер вернул ошибку: ' + data.error);
-						}						
+						}
+						$(that).removeAttr('disabled');
+					},
+					error: function () {
+						alert('Ошибка: сервер недоступен.');
+						$(that).removeAttr('disabled');
 					}
 				});
 				
@@ -118,12 +154,22 @@
 			});
 			
 			$('#btnResendEmail').click(function () {
-				fResend('email');
+				var that = this;
+				
+				$(this).attr('disabled', true);
+				fResend('email', function () {					
+					$(that).removeAttr('disabled');
+				});
 				return false;
 			});
 			
-			$('#btnResendSms').click(function () {
-				fResend('phone');
+			$('#btnResendSms').click(function () {				
+				var that = this;
+				
+				$(this).attr('disabled', true);
+				fResend('phone', function () {					
+					$(that).removeAttr('disabled');
+				});
 				return false;
 			});			
 			
@@ -151,6 +197,7 @@
 		<input type="submit" id="btnResendEmail" value="Повторно отправить email">
 		<input type="submit" id="btnResendSms" value="Повторно отправить sms"><br/>
 		
+		<label id="labeldisconnect">Ошибка: сервер недоступен.</label><br/>
 		<label id="labelredirect">Данные успешно отправлены. Сейчас вы будете перенаправлены.</label><br/>
 	</form>
 </body>

@@ -18,14 +18,15 @@
 	<script src="./jquery.min.js"></script>
 	<script>
 		var SERVER_URL = 'http://localhost:3000',	// путь к серверу
-			REDIRECT_PAUSE = 0.5;					// через сколько секунд осуществлять переадресацию после успешной отправки данных
+			REDIRECT_PAUSE = 0.5,					// через сколько секунд осуществлять переадресацию после успешной отправки данных
+			SERVER_TIMEOUT = 5;						// интервал ожидания ответа от сервера (в секундах). если превышен - сообщать об ошибке
 		
 		$(function () {
 			$('#labelredirect').hide();
 			
 			$('#btnsend').click(function () {
-				var phone = $('#phone').val(),
-					email = $('#email').val();
+				var phone = $('#phone').val().trim(),
+					email = $('#email').val().trim();
 										
 				if (!phone) {
 					alert('Необходимо указать номер телефона.');
@@ -39,12 +40,13 @@
 					alert('Введён некорректный email.');
 					return false;
 				}
-								
+				
+				$('#btnsend').attr('disabled', true);
 				$.ajax({
 					url: SERVER_URL + '/request_captcha',
-					type: 'POST',				
+					type: 'GET',				
 					dataType: 'jsonp',									
-					data: { phone: phone, email: email },
+					data: { phone: phone, email: email },					
 					success: function (data) {												
 						//console.log(data);
 						if (data.status == 'ok') {
@@ -54,9 +56,15 @@
 							}, REDIRECT_PAUSE * 1000);							
 						}
 						else {
+							$('#btnsend').removeAttr('disabled');
 							alert('Сервер вернул ошибку.');
 						}
-					}
+					},					
+					error: function () {
+						$('#btnsend').removeAttr('disabled');
+						alert('Ошибка: сервер недоступен.');
+					},
+					timeout: SERVER_TIMEOUT	* 1000					
 				});
 				
 				return false;
