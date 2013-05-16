@@ -59,8 +59,8 @@ app.get('/resend', function (req, res) {
     var captcha = req.query.captcha,
         media = req.query.media;
 
-    if ((media == 'sms') || (media == 'email')) {
-        rest.get('https://publicverification.com/v4/captcha/' + captcha + '/' + media).on('complete', function (data) {
+    if ((media == 'phone') || (media == 'email')) {
+        rest.post('https://publicverification.com/v4/captcha/' + captcha + '/' + media, { data: {} }).on('complete', function (data) {
             console.log(data);
             if (data.error && data.error.message) {
                 res.json({ status: 'error', error: data.error.message });
